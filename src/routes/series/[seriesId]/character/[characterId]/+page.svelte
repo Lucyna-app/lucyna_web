@@ -5,9 +5,10 @@
 	import { goto } from '$app/navigation';
 
 	let character = null;
-	let arts = [];
+	let artUrls = [];
 	let seriesId;
 	let characterId;
+	let selectedImage = null;
 
 	onMount(async () => {
 		seriesId = $page.params.seriesId;
@@ -15,19 +16,17 @@
 		await fetchCharacterData();
 	});
 
-	function navigateToSeries() {
-		goto(`/series/${seriesId}`);
-	}
-
 	async function fetchCharacterData() {
 		try {
 			const response = await axios.get(
 				`http://localhost:8000/series/${seriesId}/character/${characterId}`
 			);
 			character = response.data.character;
-			arts = response.data.arts || [];
+			artUrls = response.data.art_urls || [];
+			console.log('Fetched data:', response.data); // Add this line for debugging
 		} catch (error) {
 			console.error('Error fetching character data:', error);
+			artUrls = [];
 		}
 	}
 
@@ -63,12 +62,12 @@
 	async function deleteCharacter() {
 		if (
 			confirm(
-				'Are you sure you want to delete this character and all associated art? This action cannot be undone.'
+				'Are you sure you want to delete this character? This will also delete all associated art and cards. This action cannot be undone.'
 			)
 		) {
 			try {
 				await axios.delete(`http://localhost:8000/series/${seriesId}/character/${characterId}`);
-				alert('Character and associated art deleted successfully');
+				alert('Character, associated art, and cards deleted successfully');
 				goto(`/series/${seriesId}`);
 			} catch (error) {
 				console.error('Error deleting character:', error);
@@ -76,9 +75,19 @@
 			}
 		}
 	}
+
+	function openLargeImage(url) {
+		selectedImage = url;
+	}
+
+	function closeLargeImage() {
+		selectedImage = null;
+	}
 </script>
 
-<button on:click={navigateToSeries} style="margin-bottom: 20px;">Back to Series</button>
+<button on:click={() => goto(`/series/${seriesId}`)} style="margin-bottom: 20px;"
+	>Back to Series</button
+>
 
 <h1>{character ? character[1] : 'Loading...'}</h1>
 
@@ -95,14 +104,34 @@
 {/if}
 
 <h2>Arts</h2>
-{#if arts.length > 0}
-	<ul>
-		{#each arts as art}
-			<li>{art[0]}</li>
+{#if artUrls && artUrls.length > 0}
+	<div
+		style="display: grid; grid-template-columns: repeat(auto-fill, minmax(375px, 1fr)); gap: 20px;"
+	>
+		{#each artUrls as url}
+			<img
+				src={url}
+				alt="Character Art"
+				style="width: 375px; height: 525px; object-fit: cover; cursor: pointer;"
+				on:click={() => openLargeImage(url)}
+			/>
 		{/each}
-	</ul>
+	</div>
 {:else}
 	<p>No arts available for this character.</p>
+{/if}
+
+{#if selectedImage}
+	<div
+		style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000;"
+		on:click={closeLargeImage}
+	>
+		<img
+			src={selectedImage}
+			alt="Large Character Art"
+			style="max-width: 90%; max-height: 90%; object-fit: contain;"
+		/>
+	</div>
 {/if}
 
 <h2>Upload New Art</h2>
