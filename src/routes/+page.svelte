@@ -10,7 +10,7 @@
 	});
 </script>
 
-<h1>Game Administrator</h1>
+<h1>Lucyna Admin</h1>
 <h2>Series</h2>
 <ul>
 	{#each series as s}

@@ -9,6 +9,11 @@
 	let seriesId;
 	let characterId;
 	let selectedImage = null;
+	let fileInput;
+	let previewImage = null;
+	let updateArtUuid = null;
+	const DISPLAY_WIDTH = 265;
+	const DISPLAY_HEIGHT = 371;
 
 	onMount(async () => {
 		seriesId = $page.params.seriesId;
@@ -76,6 +81,52 @@
 		}
 	}
 
+	function handleFileSelect(event) {
+		const file = event.target.files[0];
+		if (file) {
+			const reader = new FileReader();
+			reader.onload = (e) => {
+				const img = new Image();
+				img.onload = () => {
+					if (img.width === 375 && img.height === 525) {
+						previewImage = e.target.result;
+					} else {
+						alert('Image must be 375x525 pixels');
+						fileInput.value = '';
+					}
+				};
+				img.src = e.target.result;
+			};
+			reader.readAsDataURL(file);
+		}
+	}
+
+	async function updateArt(artUuid) {
+		if (!fileInput.files[0]) {
+			alert('Please select a file to update');
+			return;
+		}
+
+		if (confirm('Are you sure you want to update this art?')) {
+			const formData = new FormData();
+			formData.append('art', fileInput.files[0]);
+
+			try {
+				await axios.put(`http://localhost:8000/art/update/${artUuid}`, formData, {
+					headers: { 'Content-Type': 'multipart/form-data' }
+				});
+				alert('Art updated successfully');
+				await fetchCharacterData();
+				previewImage = null;
+				fileInput.value = '';
+				updateArtUuid = null;
+			} catch (error) {
+				console.error('Error updating art:', error);
+				alert('Error updating art. Please try again.');
+			}
+		}
+	}
+
 	function openLargeImage(url) {
 		selectedImage = url;
 	}
@@ -105,20 +156,43 @@
 
 <h2>Arts</h2>
 {#if artUrls && artUrls.length > 0}
-	<div
-		style="display: grid; grid-template-columns: repeat(auto-fill, minmax(375px, 1fr)); gap: 20px;"
-	>
-		{#each artUrls as url}
-			<img
-				src={url}
-				alt="Character Art"
-				style="width: 375px; height: 525px; object-fit: cover; cursor: pointer;"
-				on:click={() => openLargeImage(url)}
-			/>
+	<div class="art-container">
+		{#each artUrls as url, index}
+			<div class="art-item">
+				<img src={url} alt="Character Art" class="art-image" on:click={() => openLargeImage(url)} />
+				<button
+					class="update-button"
+					on:click={() => (updateArtUuid = url.split('/').pop().split('?')[0])}
+				>
+					Update
+				</button>
+			</div>
 		{/each}
 	</div>
 {:else}
 	<p>No arts available for this character.</p>
+{/if}
+
+{#if updateArtUuid}
+	<div>
+		<h3>Update Art</h3>
+		<input type="file" accept="image/*" bind:this={fileInput} on:change={handleFileSelect} />
+		{#if previewImage}
+			<img
+				src={previewImage}
+				alt="Preview"
+				style="width: {DISPLAY_WIDTH}px; height: {DISPLAY_HEIGHT}px; object-fit: cover;"
+			/>
+		{/if}
+		<button on:click={() => updateArt(updateArtUuid)}>Confirm Update</button>
+		<button
+			on:click={() => {
+				updateArtUuid = null;
+				previewImage = null;
+				fileInput.value = '';
+			}}>Cancel</button
+		>
+	</div>
 {/if}
 
 {#if selectedImage}
@@ -139,3 +213,28 @@
 	<input type="file" name="art" accept="image/*" required />
 	<button type="submit">Upload Art</button>
 </form>
+
+<style>
+	.art-container {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(265px, 1fr));
+		gap: 20px;
+	}
+
+	.art-item {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.art-image {
+		width: 265px;
+		height: 371px;
+		object-fit: cover;
+		cursor: pointer;
+	}
+
+	.update-button {
+		margin-top: 10px;
+	}
+</style>
